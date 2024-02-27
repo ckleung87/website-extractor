@@ -1,0 +1,35 @@
+image:
+  serviceRabbitMQ: rabbitmq:3.7-management
+  websiteExtractor: website-extractor
+
+version:
+  websiteExtractor: latest
+# --------------------#
+# K8s Infra Config
+# --------------------#
+# Node Port range: 30000-32767
+# External Level: 31000 - 31999
+# Internal Level: 32000 - 32999
+# Socket Level: 39000 - 39999
+# Serice Type: NodePort
+service:
+  #----------- Website Extractor Service -----------#
+  websiteExtractor:
+    type: NodePort
+    port:
+      http: 80
+    nodePort:
+      http: 32001
+    targetPort: 8101
+    serviceReplicas: 1
+    workerReplicas: 1
+# --------------------#
+# Environment Config
+# --------------------#
+env:
+  name: DEV
+  aws:
+    region: <aws-region>
+  #----------- Website Extractor Service -----------#
+  websiteExtractor:
+    logLevel: INFO

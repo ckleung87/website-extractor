@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: eks-pv-claim
+  namespace: default  
+spec:
+  volumeName: eks-efs-pv
+  accessModes:
+    - ReadWriteMany
+  selector:
+    matchLabels:
+      pv-name: eks-efs-pv
+  storageClassName: efs-sc
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: website-extractor-service-pv-claim
+  namespace: default  
+spec:
+  volumeName: website-extractor-service-efs-pv
+  accessModes:
+    - ReadWriteMany
+  selector:
+    matchLabels:
+      pv-name: website-extractor-service-efs-pv
+  storageClassName: efs-sc
+  resources:
+    requests:
+      storage: 1Gi

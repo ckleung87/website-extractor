@@ -1,0 +1,76 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: website-extractor-service
+  namespace: default
+spec:
+  type: {{ .Values.service.website-extractor.type }}
+  ports:
+    - name: http
+      port: {{ .Values.service.website-extractor.port.http }}
+      nodePort: {{ .Values.service.website-extractor.nodePort.http }}
+      targetPort: {{ .Values.service.website-extractor.targetPort }}
+      protocol: TCP
+  selector:
+    app: website-extractor
+---
+#---------------------------------------#
+# Master (API + Scheduler + Worker)
+#---------------------------------------#
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: website-extractor-master
+  namespace: default  
+  labels:
+    app: website-extractor
+spec:
+  replicas: {{ .Values.service.websiteExtractor.masterReplicas }}
+  selector:
+    matchLabels:
+      app: website-extractor
+  template:
+    metadata:
+      labels:
+        app: stl
+    spec:
+      volumes:
+        - name: website-extractor-service-pv-storage
+          persistentVolumeClaim:
+            claimName: website-extractor-service-pv-claim
+      containers:
+        - name: website-extractor
+          image: "{{ .Values.image.websiteExtractor }}:{{ .Values.version.websiteExtractor }}"
+          imagePullPolicy: IfNotPresent
+          resources:
+            requests:
+              {{ if .Values.service.websiteExtractor.masterMemoryRequest }}
+              memory: {{ .Values.service.websiteExtractor.masterMemoryRequest }}
+              {{ end }}
+              {{ if .Values.service.websiteExtractor.masterCpuRequest }}
+              cpu: {{ .Values.service.websiteExtractor.masterCpuRequest }}
+              {{ end }}
+            limits:
+              {{ if .Values.service.websiteExtractor.masterMemoryLimit }}
+              memory: {{ .Values.service.websiteExtractor.masterMemoryLimit}}
+              {{ end }}
+              {{ if .Values.service.websiteExtractor.masterCpuLimit }}
+              cpu: {{ .Values.service.websiteExtractor.masterCpuLimit }}
+              {{ end }}
+          ports:
+            - containerPort: {{ .Values.service.websiteExtractor.targetPort }}
+          volumeMounts:
+            - name: website-extractor-service-pv-storage
+              mountPath: /dist/contents
+          envFrom:
+            - configMapRef:
+                name: website-extractor-config         
+          env:
+            - name: K8S_NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+            - name: K8S_POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
