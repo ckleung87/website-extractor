@@ -1,0 +1,15 @@
+version: '3.7'
+services:
+  app:
+    image: website-extractor
+    build:
+      context: .
+    environment:
+      - ENV=DEV
+      - SERVICE_NAME=WEBSITE-EXTRACTOR
+      - LOG_LEVEL=INFO
+      - WEBSITE_URL=https://electroroute.com/
+      - RECURSIVE_LEVEL_LIMIT=0
+      - EXTRACT_PAGE_SLEEP_SEC=0.2
+    volumes:
+      - ./contents:/dist/contents # Mount container contents dir to local
