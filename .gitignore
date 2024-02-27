@@ -1,0 +1,17 @@
+# python
+__pycache__
+
+# folder
+logs
+VENV
+contents
+
+# extension
+.DS_Store
+.env
+*.pyc
+
+# misc
+.vscode/launch.json
+.vscode/.ropeproject
+
