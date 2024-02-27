@@ -1,0 +1,132 @@
+image: docker:24.0.7
+
+services:
+  - docker:24.0.7-dind
+
+variables:
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: ""
+  ECS_SERVICE_NAME: 'defined in gitlab'
+  ECS_REGION: 'defined in gitlab'
+  ECS_REGISTRY_URL: 'defined in gitlab'
+
+  VERSION_MAJOR: 0
+  VERSION_MINOR: 0
+  VERSION_BUILD: 1
+
+  CONTAINER_IMAGE: $ECS_REGISTRY_URL/$ECS_SERVICE_NAME
+  VERSION: $VERSION_MAJOR.$VERSION_MINOR.$VERSION_BUILD
+
+before_script:
+  - COMMIT_SHA_SHORT=`echo $CI_COMMIT_SHA | cut -c1-8`
+  - echo $CI_PIPELINE_ID
+  - echo $CI_PIPELINE_IID
+  - TAG=${VERSION}
+  - TAG_DEV=${VERSION}-${COMMIT_SHA_SHORT}-dev
+  - TAG_DEMO=${VERSION}-${COMMIT_SHA_SHORT}-demo
+
+stages:
+  - test
+  - build
+  - deploy
+
+# ---------------- test ----------------
+test:
+  stage: test
+  image: docker:24.0.7
+  except:
+    - tags
+  tags:
+    - dind
+  script:
+    - pip install -r ./requirements.txt
+    - cp ./env/example.env ./src/.env
+    - cd src
+    - python tests.py
+
+# ---------------- build ----------------
+dev-build:
+  stage: build
+  only:
+    - development
+  tags:
+    - dind
+    - python
+  script:
+    - echo $TAG_DEV
+    - $(aws ecr get-login --no-include-email --region ap-northeast-1 )
+    - docker pull $CONTAINER_IMAGE:latest-dev || true
+    - docker buildx create --use
+    - docker buildx build --cache-from $CONTAINER_IMAGE:latest-dev 
+      --platform linux/arm64/v8,linux/amd64 
+      --tag $CONTAINER_IMAGE:latest-dev
+      --tag $CONTAINER_IMAGE:$TAG_DEV 
+      --provenance false
+      --push .
+    - docker buildx build
+      --platform linux/arm64/v8
+      --tag $CONTAINER_IMAGE:latest-dev-linux-arm64
+      --tag $CONTAINER_IMAGE:$TAG_DEV-linux-arm64
+      --provenance false
+      --push .
+    - docker buildx build
+      --platform linux/amd64
+      --tag $CONTAINER_IMAGE:latest-dev-linux-amd64
+      --tag $CONTAINER_IMAGE:$TAG_DEV-linux-amd64
+      --provenance false
+      --push .
+
+master-build:
+  stage: build
+  only:
+    - master
+  tags:
+    - dind
+    - python
+  script:
+    - echo $TAG
+    - $(aws ecr get-login --no-include-email --region ap-northeast-1 )
+    - docker pull $CONTAINER_IMAGE:latest || true
+    - docker buildx create --use
+    - docker buildx build --cache-from $CONTAINER_IMAGE:latest
+      --platform linux/arm64/v8,linux/amd64 
+      --tag $CONTAINER_IMAGE:latest
+      --tag $CONTAINER_IMAGE:$TAG
+      --push .
+    - docker buildx build
+      --platform linux/arm64/v8
+      --tag $CONTAINER_IMAGE:latest-linux-arm64
+      --tag $CONTAINER_IMAGE:$TAG-linux-arm64
+      --provenance false
+      --push .
+    - docker buildx build
+      --platform linux/amd64
+      --tag $CONTAINER_IMAGE:latest-linux-amd64
+      --tag $CONTAINER_IMAGE:$TAG-linux-amd64
+      --provenance false
+      --push .
+
+# ---------------- deploy ----------------
+deploy-dev:
+  stage: deploy
+  only:
+    - development
+  tags:
+    - python
+  image: docker:24.0.7
+  script:
+    - echo $K8S_APP_NAME
+    - echo $TAG
+
+deploy-prod:
+  stage: deploy
+  only:
+    - master
+  only:
+    - tags
+  tags:
+    - python
+  image: docker:24.0.7
+  script:
+    - echo $K8S_APP_NAME
+    - echo $TAG
